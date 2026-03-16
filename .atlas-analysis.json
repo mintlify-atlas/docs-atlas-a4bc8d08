@@ -1,0 +1,103 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Killa",
+  "projectDescription": "A small and lightweight state management library for vanilla JavaScript and React, inspired by Zustand and SWR.",
+  "theme": "mint",
+  "primaryColor": "#848c8e",
+  "lightColor": "#11161e",
+  "darkColor": "#cfd0d2",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": ["introduction", "installation", "quickstart"]
+          },
+          {
+            "group": "Vanilla",
+            "pages": [
+              "vanilla/getting-started",
+              "vanilla/state-access",
+              "vanilla/state-updates",
+              "vanilla/subscriptions",
+              "vanilla/actions"
+            ]
+          },
+          {
+            "group": "React",
+            "pages": [
+              "react/getting-started",
+              "react/use-store",
+              "react/silent-states"
+            ]
+          },
+          {
+            "group": "Middlewares",
+            "pages": [
+              "middlewares/overview",
+              "middlewares/persist"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core API",
+            "pages": [
+              "api/create-store",
+              "api/store-methods",
+              "api/types"
+            ]
+          },
+          {
+            "group": "React API",
+            "pages": [
+              "api/use-store"
+            ]
+          },
+          {
+            "group": "Persist Middleware API",
+            "pages": [
+              "api/persist",
+              "api/normalize-storage"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Lightweight state management for vanilla JS and React",
+    "Immutable internal state with deep equality checks",
+    "Selective subscriptions to minimize re-renders",
+    "Support for internal actions via get/set initializer",
+    "Persist middleware with localStorage, sessionStorage, and custom storage",
+    "Auto-revalidate on window focus with configurable timeout",
+    "Optional state encryption via btoa/atob",
+    "Silent states in React for non-reactive state reads",
+    "TypeScript-first with full type definitions"
+  ],
+  "publicApiSurface": [
+    "createStore(initializer, options)",
+    "store.getState()",
+    "store.setState(fn, force?)",
+    "store.subscribe(subscriber, selector?)",
+    "store.resetState(state?)",
+    "store.destroy()",
+    "store.getServerState()",
+    "useStore(store, selector, silect?)",
+    "persist(config)",
+    "normalizeStorage(initializerStorage, options?)",
+    "Store<T>",
+    "Options<T>",
+    "Selector<T, U>",
+    "Subscriber<T, U>",
+    "PersistConfig<T>",
+    "CustomStorage<T>",
+    "StoreWithPersist"
+  ]
+}
