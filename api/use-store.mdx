@@ -1,0 +1,141 @@
+---
+title: useStore
+description: React hook for subscribing to a Killa store and re-rendering on selected state changes.
+---
+
+`useStore` connects a React component to a Killa store. The component re-renders only when the portion of state selected by the `selector` function changes.
+
+## Import
+
+```ts
+import { useStore } from 'killa/react'
+```
+
+## Signature
+
+```ts
+function useStore<T, U>(
+  store: Store<T>,
+  selector: ((state: T) => U) | null,
+  silect?: boolean
+): [U, Store<T>['setState']]
+```
+
+## Parameters
+
+<ParamField path="store" type="Store<T>" required>
+  A Killa store created with `createStore`. Throws `'Provide a valid store for useStore.'` if the value is not a valid Killa store (missing `$$store` symbol).
+</ParamField>
+
+<ParamField path="selector" type="((state: T) => U) | null" required>
+  A function that derives the value your component needs from the full state. The component only re-renders when the derived value changes (deep equality).
+
+  Pass `null` to opt into **silent mode**: the store state is captured at mount and the component never re-renders due to store changes. When `selector` is `null`, `silect` is automatically set to `true`.
+</ParamField>
+
+<ParamField path="silect" type="boolean" default="false">
+  When `true`, the hook captures the selected state once at mount and does **not** subscribe to future updates. The component will not re-render when the store changes, but you still get access to `setState` to dispatch updates.
+
+  The name is an intentional portmanteau of *silent* and *select*.
+</ParamField>
+
+## Return value
+
+Returns a two-element tuple:
+
+<ResponseField name="[0]" type="U">
+  The current value returned by the selector. Stays in sync with the store unless `silect` is `true`.
+</ResponseField>
+
+<ResponseField name="[1]" type="Store<T>['setState']">
+  The `setState` function of the store. Use it to dispatch state updates from the component.
+</ResponseField>
+
+## Errors
+
+<Warning>
+  `useStore` throws `'Provide a valid store for useStore.'` when the `store` argument is missing, `null`, or does not carry the `$$store` brand symbol. This usually means you forgot to pass the store, or you passed the result of `getState()` instead of the store itself.
+</Warning>
+
+## Usage
+
+### Basic subscription
+
+```tsx
+import { useStore } from 'killa/react'
+import { counterStore } from './stores/counter'
+
+function Counter() {
+  const [count, setState] = useStore(counterStore, (s) => s.count)
+
+  return (
+    <button onClick={() => setState((s) => ({ count: s.count + 1 }))}>
+      Count: {count}
+    </button>
+  )
+}
+```
+
+### Selecting multiple fields
+
+Return an object from the selector. The component re-renders only when the shape of the returned object changes (deep equality):
+
+```tsx
+function UserCard() {
+  const [user, setState] = useStore(userStore, (s) => ({
+    name: s.name,
+    avatar: s.avatar,
+  }))
+
+  return <div>{user.name}</div>
+}
+```
+
+### Accessing the full state without subscriptions
+
+Passing `null` as the selector captures the full state at mount without subscribing to updates:
+
+```tsx
+function StaticSnapshot() {
+  const [state, setState] = useStore(configStore, null)
+
+  // state reflects the store at mount time — never stale by design
+  return <pre>{JSON.stringify(state, null, 2)}</pre>
+}
+```
+
+### Silent mode with a selector
+
+Use `silect: true` when you only need the value once (e.g., reading initial configuration) and want to avoid any re-renders:
+
+```tsx
+function InitialTheme() {
+  const [theme] = useStore(settingsStore, (s) => s.theme, true)
+
+  // theme is frozen at mount value; store updates do not trigger a re-render
+  return <div className={`theme-${theme}`}>...</div>
+}
+```
+
+### Dispatching updates inline
+
+The second element of the tuple is always `setState`, regardless of the selector:
+
+```tsx
+function ToggleTheme() {
+  const [theme, setState] = useStore(settingsStore, (s) => s.theme)
+
+  const toggle = () =>
+    setState((s) => ({ theme: s.theme === 'light' ? 'dark' : 'light' }))
+
+  return <button onClick={toggle}>{theme}</button>
+}
+```
+
+## Re-render behavior
+
+By default, `useStore` subscribes to the store and re-renders the component whenever the value returned by `selector` changes. The comparison uses deep equality, so returning a structurally identical object from the selector will **not** cause a re-render even if it is a new reference.
+
+<Tip>
+  Keep selectors cheap — they run on every store update. Avoid expensive computations inside a selector; memoize them externally if needed.
+</Tip>

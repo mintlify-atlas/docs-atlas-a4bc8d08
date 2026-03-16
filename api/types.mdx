@@ -1,0 +1,254 @@
+---
+title: TypeScript types
+description: Complete reference for all exported TypeScript interfaces and type aliases in Killa.
+---
+
+All types below are exported from their respective entry points and can be imported directly.
+
+## Core types
+
+### `Store<T>`
+
+```ts
+import type { Store } from 'killa'
+```
+
+The shape of every store object returned by `createStore`.
+
+```ts
+export interface Store<T = Record<string, any>> {
+  $$store: symbol
+  getState: () => T
+  setState: (fn: (state: T) => Partial<T>, force?: boolean) => void
+  subscribe: <U>(
+    subscriber: Subscriber<T, U>,
+    selector?: (state: T) => U
+  ) => () => boolean
+  getServerState: () => T
+}
+```
+
+<ResponseField name="$$store" type="symbol">
+  Internal brand symbol used by Killa to identify valid store objects. Do not rely on this value — it is an implementation detail.
+</ResponseField>
+
+<ResponseField name="getState" type="() => T">
+  Returns a deep clone of the current state. See [getState](/api/store-methods#getstate).
+</ResponseField>
+
+<ResponseField name="setState" type="(fn: (state: T) => Partial<T>, force?: boolean) => void">
+  Updates the state. See [setState](/api/store-methods#setstate).
+</ResponseField>
+
+<ResponseField name="subscribe" type="(subscriber, selector?) => () => boolean">
+  Registers a subscriber. See [subscribe](/api/store-methods#subscribe).
+</ResponseField>
+
+<ResponseField name="getServerState" type="() => T">
+  Returns the original initial state. See [getServerState](/api/store-methods#getserverstate).
+</ResponseField>
+
+---
+
+### `Options<T>`
+
+```ts
+import type { Options } from 'killa'
+```
+
+Configuration options accepted by `createStore`.
+
+```ts
+export interface Options<T> {
+  compare?: (a: unknown, b: unknown) => boolean
+  clone?: (state: T) => T
+  use?: ((store: Store<T>) => void)[]
+}
+```
+
+<ResponseField name="compare" type="(a: unknown, b: unknown) => boolean">
+  Custom equality comparator. Defaults to `deepEquals` from `killa/deep-equals`. Return `true` when the two values are considered equal (no update needed).
+</ResponseField>
+
+<ResponseField name="clone" type="(state: T) => T">
+  Custom cloning function used instead of `just-clone`. Provide this when your state contains non-serializable values that `just-clone` cannot handle.
+</ResponseField>
+
+<ResponseField name="use" type="((store: Store<T>) => void)[]">
+  Array of middleware factory results. Each function is called with the store after construction and can attach new properties or wrap existing methods.
+</ResponseField>
+
+---
+
+### `Selector<T, U>`
+
+```ts
+import type { Selector } from 'killa'
+```
+
+A function that derives a value `U` from state `T`.
+
+```ts
+export type Selector<T, U = unknown> = (state: T) => U
+```
+
+**Example**
+
+```ts
+const selectCount: Selector<{ count: number }, number> =
+  (state) => state.count
+```
+
+---
+
+### `Subscriber<T, U>`
+
+```ts
+import type { Subscriber } from 'killa'
+```
+
+A listener function with optional internal tracking metadata attached by `subscribe` when a selector is used.
+
+```ts
+export interface Subscriber<T, U = unknown> {
+  (state: T, prevState: T): void
+  $$subscriber?: symbol
+  $$selectorState?: U
+  $$selector?: Selector<T, U>
+}
+```
+
+<ResponseField name="$$subscriber" type="symbol">
+  Present when the subscriber was registered with a selector. Set to `SYMBOL_SUBSCRIBER` to mark it for optimized diffing.
+</ResponseField>
+
+<ResponseField name="$$selectorState" type="U">
+  Cached result of the last selector invocation. Used to skip subscriber calls when the selected slice has not changed.
+</ResponseField>
+
+<ResponseField name="$$selector" type="Selector<T, U>">
+  The selector function passed to `subscribe`. Stored on the subscriber so the subscription loop can re-run it on each update.
+</ResponseField>
+
+<Info>
+  The `$$`-prefixed properties are internal and managed by Killa. You should not read or write them in application code.
+</Info>
+
+---
+
+## Persist types
+
+Import persist types from `killa/persist`.
+
+### `StoreWithPersist`
+
+```ts
+import type { StoreWithPersist } from 'killa/persist'
+```
+
+The object attached to `store.persist` after the `persist` middleware is applied.
+
+```ts
+export interface StoreWithPersist {
+  $$persist: symbol
+  name: string
+  destroy: () => void
+  rehydrate: () => void
+  hydrated: () => boolean
+}
+```
+
+<ResponseField name="$$persist" type="symbol">
+  Internal brand symbol identifying persist-augmented stores.
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  The storage key used to persist this store (matches `PersistConfig.name`).
+</ResponseField>
+
+<ResponseField name="destroy" type="() => void">
+  Removes the persisted entry from storage.
+</ResponseField>
+
+<ResponseField name="rehydrate" type="() => void">
+  Reads the persisted state from storage and applies it to the store. Called automatically on initialization; call manually to force a re-read.
+</ResponseField>
+
+<ResponseField name="hydrated" type="() => boolean">
+  Returns `true` if the store has been hydrated from storage at least once.
+</ResponseField>
+
+---
+
+### `CustomStorage<T>`
+
+```ts
+import type { CustomStorage } from 'killa/persist'
+```
+
+The interface any storage adapter must satisfy to be used with Killa persist.
+
+```ts
+export interface CustomStorage<T> {
+  getItem: (name: string) => T | null
+  setItem: (name: string, value: unknown) => void
+  removeItem: (name: string) => void
+}
+```
+
+<ResponseField name="getItem" type="(name: string) => T | null">
+  Read a value by key. Return `null` when the key does not exist.
+</ResponseField>
+
+<ResponseField name="setItem" type="(name: string, value: unknown) => void">
+  Write a value under the given key.
+</ResponseField>
+
+<ResponseField name="removeItem" type="(name: string) => void">
+  Delete the value associated with the given key.
+</ResponseField>
+
+---
+
+### `PersistConfig<T>`
+
+```ts
+import type { PersistConfig } from 'killa/persist'
+```
+
+Configuration object accepted by the `persist` middleware factory.
+
+```ts
+export interface PersistConfig<T> {
+  name?: string
+  storage?: CustomStorage<T> | (() => CustomStorage<T>)
+  merge?: (state: T, persistedState: T) => T
+  revalidate?: boolean
+  revalidateTimeout?: number
+  encrypted?: boolean
+}
+```
+
+<ResponseField name="name" type="string">
+  The key used to read and write from storage. Should be unique across all stores in your application.
+</ResponseField>
+
+<ResponseField name="storage" type="CustomStorage<T> | (() => CustomStorage<T>)">
+  The storage backend. Defaults to `localStorage`. Accepts a storage object directly or a factory function (recommended for SSR environments where `window` is unavailable).
+</ResponseField>
+
+<ResponseField name="merge" type="(state: T, persistedState: T) => T">
+  Custom merge function called with the current in-memory state and the value read from storage. By default, the persisted state is shallow-merged over the current state.
+</ResponseField>
+
+<ResponseField name="revalidate" type="boolean" default="true">
+  When `true`, the store re-reads from storage after `revalidateTimeout` milliseconds to pick up changes made by other tabs or windows.
+</ResponseField>
+
+<ResponseField name="revalidateTimeout" type="number" default="200">
+  Milliseconds to wait before revalidating from storage. Only relevant when `revalidate` is `true`.
+</ResponseField>
+
+<ResponseField name="encrypted" type="boolean" default="false">
+  When `true`, storage keys and values are encoded with `btoa`/`atob`. This is obfuscation, not encryption — do not use it for sensitive data.
+</ResponseField>

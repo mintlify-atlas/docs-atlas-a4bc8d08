@@ -1,80 +1,257 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Build your first Killa store and connect it to React in under 5 minutes"
 ---
 
-## Get started in three steps
+This guide takes you from zero to a working Killa store in minutes. You'll create a store, read and update state, subscribe to changes, and wire it up to a React component.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Install Killa before starting:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+```bash
+npm install killa
+```
 
-### Step 2: Deploy your changes
+For React usage, also ensure React 18+ is installed:
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+```bash
+npm install react react-dom
+```
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+---
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+## Vanilla quickstart
 
-### Step 3: Go live
+<Steps>
+  <Step title="Create your first store">
+    Pass a plain object to `createStore`. The object becomes your initial state.
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    ```js
+    import { createStore } from 'killa'
+
+    const store = createStore({ counter: 0 })
+    ```
+
+    <Note>
+      The state inside a Killa store is **immutable** — you can only change it through `setState`. The `store` object itself is frozen in production.
+    </Note>
+  </Step>
+
+  <Step title="Read state">
+    Call `getState()` to get the current state. It returns a deep clone — safe to read, but mutations won't affect the store.
+
+    ```js
+    store.getState()
+    // { counter: 0 }
+    ```
+  </Step>
+
+  <Step title="Update state">
+    Call `setState` with a function that receives the current state and returns the new (partial) state. Killa merges the result with the existing state.
+
+    ```js
+    store.setState((state) => ({
+      ...state,
+      counter: state.counter + 1
+    }))
+
+    store.getState()
+    // { counter: 1 }
+    ```
+
+    <Tip>
+      You can return only the fields you want to change — Killa performs a shallow merge automatically.
+    </Tip>
+  </Step>
+
+  <Step title="Subscribe to changes">
+    Use `subscribe` to react to state changes. Pass an optional selector to narrow which changes trigger the callback.
+
+    ```js
+    // Global subscriber — fires on any state change
+    store.subscribe((state, prevState) => {
+      console.log('counter changed:', prevState.counter, '→', state.counter)
+    })
+
+    // Selective subscriber — fires only when counter changes
+    store.subscribe((state, prevState) => {
+      console.log('counter:', state.counter)
+    }, (state) => state.counter)
+
+    store.setState((state) => ({ ...state, counter: state.counter + 1 }))
+    // Logs: counter changed: 1 → 2
+    // Logs: counter: 2
+    ```
+
+    Subscribe returns an unsubscribe function:
+
+    ```js
+    const unsub = store.subscribe((state) => console.log(state))
+    unsub() // removes the subscriber
+    ```
+  </Step>
+
+  <Step title="Reset or destroy">
+    Reset the store to its initial state, or clear all subscribers:
+
+    ```js
+    store.resetState()            // back to { counter: 0 }
+    store.resetState({ notes: [] }) // overwrite with new state
+
+    store.destroy()               // clear all subscribers
+    ```
+  </Step>
+</Steps>
+
+---
+
+## React quickstart
+
+<Steps>
+  <Step title="Create a shared store">
+    Define your store outside of any component so it can be shared across the entire app.
+
+    ```js
+    import { createStore } from 'killa'
+
+    export const counterStore = createStore({ counter: 0, filter: '' })
+    ```
+  </Step>
+
+  <Step title="Connect to a component with useStore">
+    Import `useStore` from `killa/react` and pass in your store and a selector. The selector determines which part of the state this component subscribes to.
+
+    ```jsx
+    import { useStore } from 'killa/react'
+    import { counterStore } from './store'
+
+    export function Counter() {
+      // Only re-renders when `counter` or `filter` changes
+      const [state, setState] = useStore(counterStore, (state) => ({
+        counter: state.counter,
+        filter: state.filter
+      }))
+
+      const handleIncrement = () => {
+        setState((state) => ({
+          ...state,
+          counter: state.counter + 1
+        }))
+      }
+
+      return (
+        <div>
+          <p>Counter: {state.counter}</p>
+          <button onClick={handleIncrement}>+1</button>
+        </div>
+      )
+    }
+    ```
+
+    <Note>
+      `useStore` returns a `[state, setState]` tuple. The `setState` function is the same as `store.setState` — it receives a function and merges the returned value.
+    </Note>
+  </Step>
+
+  <Step title="Add a second component reading a different slice">
+    Selective subscriptions mean components only re-render for the state they care about:
+
+    ```jsx
+    export function FilterInput() {
+      // Only re-renders when `filter` changes — not when `counter` changes
+      const [state, setState] = useStore(counterStore, (state) => state.filter)
+
+      return (
+        <input
+          value={state}
+          onChange={(e) => setState((s) => ({ ...s, filter: e.target.value }))}
+          placeholder="Filter..."
+        />
+      )
+    }
+    ```
+  </Step>
+</Steps>
+
+---
+
+## Using internal actions
+
+Instead of calling `setState` from outside the store, you can define actions inside the initializer:
+
+```js
+import { createStore } from 'killa'
+
+const store = createStore((get, set) => ({
+  count: 0,
+  inc: () => set(() => ({ count: get().count + 1 })),
+  dec: () => set(() => ({ count: get().count - 1 })),
+  reset: () => set(() => ({ count: 0 }))
+}))
+
+store.getState().inc()  // count: 1
+store.getState().inc()  // count: 2
+store.getState().dec()  // count: 1
+store.getState().reset() // count: 0
+```
+
+In React:
+
+```jsx
+const [{ count, inc, dec }, setState] = useStore(store, (s) => s)
+
+return (
+  <div>
+    <button onClick={dec}>-</button>
+    <span>{count}</span>
+    <button onClick={inc}>+</button>
+  </div>
+)
+```
+
+---
+
+## TypeScript
+
+Killa is TypeScript-first. Pass your state type as a generic:
+
+```ts
+import { createStore } from 'killa'
+
+interface AppState {
+  counter: number
+  filter: string
+  items: string[]
+}
+
+const store = createStore<AppState>({
+  counter: 0,
+  filter: '',
+  items: []
+})
+
+// Fully typed — TypeScript knows the shape of state
+store.setState((state) => ({
+  counter: state.counter + 1 // state.counter: number ✓
+}))
+```
+
+---
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Vanilla API" icon="js" href="/vanilla/getting-started">
+    Deep dive into all vanilla store methods
+  </Card>
+  <Card title="React API" icon="react" href="/react/getting-started">
+    Learn useStore and selective subscriptions in detail
+  </Card>
+  <Card title="Persist Middleware" icon="database" href="/middlewares/persist">
+    Persist your store across page reloads
+  </Card>
+  <Card title="API Reference" icon="book" href="/api/create-store">
+    Full TypeScript type signatures
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

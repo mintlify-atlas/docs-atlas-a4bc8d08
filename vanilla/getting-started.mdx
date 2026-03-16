@@ -1,0 +1,92 @@
+---
+title: Getting started
+description: Learn how to create and use a Killa store in vanilla JavaScript.
+---
+
+Killa is a minimal state management library built around a single concept: a **store** — an immutable, cloneable container for your application state.
+
+## Creating a store
+
+Use `createStore` to initialize a store. You can pass either a plain object or a function initializer.
+
+### Plain object
+
+The simplest way to create a store is to pass a plain state object directly:
+
+```js
+import { createStore } from 'killa'
+
+const store = createStore({ counter: 0 })
+```
+
+The object you pass becomes the initial state. Killa deep-clones it internally, so the original reference is never mutated.
+
+### Function initializer
+
+For stores that include actions (methods that read and update state), pass a function that receives `get` and `set`:
+
+```js
+import { createStore } from 'killa'
+
+const store = createStore((get, set) => ({
+  count: 1,
+  inc: () => set(() => ({ count: get().count + 1 })),
+  getCount: () => get().count
+}))
+
+store.getState().inc()      // count: 2
+store.getState().getCount() // 2
+```
+
+- `get` is equivalent to `store.getState`
+- `set` is equivalent to `store.setState`
+
+See [Actions](/vanilla/actions) for full details on this pattern.
+
+## The store is frozen
+
+`createStore` returns a frozen object via `Object.freeze`. You cannot add, remove, or reassign properties on the store itself:
+
+```js
+const store = createStore({ counter: 0 })
+
+// These will silently fail (or throw in strict mode)
+store.getState = () => {}
+store.newProp = 'x'
+```
+
+This ensures the store's API surface is stable and cannot be tampered with at runtime.
+
+## State is always cloned
+
+`getState()` returns a **deep clone** of the internal state, not a reference to it. Mutating the returned object has no effect on the store:
+
+```js
+const store = createStore({ counter: 0 })
+
+const state = store.getState()
+state.counter = 99 // This does NOT affect the store
+
+store.getState().counter // still 0
+```
+
+<Warning>
+  Always use `setState` to update state. Direct mutation of the object returned by `getState()` is silently ignored.
+</Warning>
+
+## Store API overview
+
+<Columns cols={2}>
+  <Card title="State access" icon="eye" href="/vanilla/state-access">
+    Read current state with `getState()` and retrieve initial state with `getServerState()`.
+  </Card>
+  <Card title="State updates" icon="pencil" href="/vanilla/state-updates">
+    Update state with `setState()`, reset it with `resetState()`, and understand merge vs. replace behavior.
+  </Card>
+  <Card title="Subscriptions" icon="bell" href="/vanilla/subscriptions">
+    React to state changes with global or selector-scoped subscribers. Unsubscribe individually or destroy all at once.
+  </Card>
+  <Card title="Actions" icon="bolt" href="/vanilla/actions">
+    Encapsulate logic inside the store using the function initializer pattern.
+  </Card>
+</Columns>

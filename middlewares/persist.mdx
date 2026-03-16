@@ -1,0 +1,294 @@
+---
+title: "Persist middleware"
+description: "Automatically save and rehydrate Killa store state using localStorage, sessionStorage, or any custom storage backend."
+---
+
+The `persist` middleware saves your store's state to a storage backend on every `setState` call and rehydrates it when the store initializes. It also supports automatic revalidation when the user returns to the page.
+
+## Installation
+
+`persist` is included in the `killa` package — no separate install required.
+
+```bash
+npm install killa
+```
+
+## Basic usage
+
+```js
+import { createStore } from 'killa'
+import { persist } from 'killa/persist'
+
+const store = createStore(
+  { counter: 0, filter: '' },
+  {
+    use: [
+      persist({ name: 'my-store' })
+    ]
+  }
+)
+```
+
+The store state is now saved to `localStorage` under the key `my-store` on every update, and restored automatically on the next page load.
+
+## How it works
+
+<Steps>
+  <Step title="Hydration on init">
+    When the store is created, `persist` reads the stored value from storage and merges it into the initial state. If no stored value exists, the store starts with the initial state you provided.
+  </Step>
+  <Step title="Persistence on every update">
+    Every `store.setState()` call triggers a write to storage. The entire state is serialized (and optionally encrypted) and saved under the configured `name` key.
+  </Step>
+  <Step title="Auto-revalidation on focus">
+    When `revalidate` is enabled (the default), `persist` listens for `window focus` and `document visibilitychange` events. When the user returns to the tab, the store is rehydrated from storage after the configured timeout. This keeps tabs in sync.
+  </Step>
+</Steps>
+
+## Configuration
+
+All options are passed to `persist(config)` as a `PersistConfig<T>` object.
+
+<ParamField path="name" type="string">
+  Unique key used to read and write state in storage. Two stores with the same `name` share the same storage entry — make sure each store uses a distinct name.
+</ParamField>
+
+<ParamField path="storage" type="CustomStorage<T> | (() => CustomStorage<T>)" default="() => localStorage">
+  The storage backend to use. Defaults to `localStorage`. Can be any object (or factory returning an object) that implements `getItem`, `setItem`, and `removeItem`. Use `normalizeStorage` to wrap Web Storage API objects like `sessionStorage`.
+</ParamField>
+
+<ParamField path="merge" type="(currentState: T, persistedState: T) => T">
+  Custom merge function called during hydration. Receives the current in-memory state and the persisted state, and returns the merged result. Defaults to a shallow merge that gives persisted values priority.
+</ParamField>
+
+<ParamField path="revalidate" type="boolean" default="true">
+  When `true`, the store rehydrates from storage whenever the window regains focus or the document becomes visible. Disable this if you do not want cross-tab sync behavior.
+</ParamField>
+
+<ParamField path="revalidateTimeout" type="number" default="200">
+  Delay in milliseconds before rehydrating on focus. Prevents unnecessary reads when the user briefly switches windows.
+</ParamField>
+
+<ParamField path="encrypted" type="boolean" default="false">
+  When `true`, both the storage key and serialized value are encoded using `btoa`/`atob`. This provides basic obfuscation — it is not cryptographically secure.
+</ParamField>
+
+## store.persist API
+
+After applying the middleware, `store.persist` is attached to the store instance and exposes the following properties:
+
+<AccordionGroup>
+  <Accordion title="store.persist.name">
+    The storage key this store is persisted under.
+
+    ```js
+    console.log(store.persist.name) // 'my-store'
+    ```
+  </Accordion>
+  <Accordion title="store.persist.hydrated()">
+    Returns `true` after the store has been rehydrated from storage at least once. Useful for guarding UI that depends on persisted state being available.
+
+    ```js
+    if (store.persist.hydrated()) {
+      // safe to read persisted state
+    }
+    ```
+  </Accordion>
+  <Accordion title="store.persist.rehydrate()">
+    Manually triggers rehydration from storage. Reads the current value in storage and merges it into the store.
+
+    ```js
+    store.persist.rehydrate()
+    ```
+  </Accordion>
+  <Accordion title="store.persist.destroy()">
+    Removes the persisted entry from storage. The store continues to work in memory but will no longer restore state on the next page load.
+
+    ```js
+    store.persist.destroy()
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Examples
+
+<Tabs>
+  <Tab title="Basic (localStorage)">
+    ```js
+    import { createStore } from 'killa'
+    import { persist } from 'killa/persist'
+
+    const store = createStore(
+      { counter: 0, filter: '' },
+      {
+        use: [
+          persist({ name: 'killa-persist' })
+        ]
+      }
+    )
+    ```
+  </Tab>
+  <Tab title="sessionStorage">
+    Use `normalizeStorage` to wrap `sessionStorage` (or any Web Storage API object):
+
+    ```js
+    import { createStore } from 'killa'
+    import { persist, normalizeStorage } from 'killa/persist'
+
+    const store = createStore(
+      { counter: 0, filter: '' },
+      {
+        use: [
+          persist({
+            name: 'killa-persist',
+            storage: normalizeStorage(() => sessionStorage)
+          })
+        ]
+      }
+    )
+    ```
+  </Tab>
+  <Tab title="Encrypted">
+    Enable `encrypted` to obfuscate stored keys and values with `btoa`/`atob`:
+
+    ```js
+    import { createStore } from 'killa'
+    import { persist } from 'killa/persist'
+
+    const store = createStore(
+      { counter: 0, filter: '' },
+      {
+        use: [
+          persist({
+            name: 'killa-persist',
+            encrypted: true
+          })
+        ]
+      }
+    )
+    ```
+
+    <Warning>
+      `encrypted: true` uses `btoa`/`atob` encoding. This is obfuscation, not encryption. Do not use it to protect sensitive data.
+    </Warning>
+  </Tab>
+  <Tab title="Custom options">
+    Override the revalidation defaults:
+
+    ```js
+    import { createStore } from 'killa'
+    import { persist } from 'killa/persist'
+
+    const store = createStore(
+      { counter: 0, filter: '' },
+      {
+        use: [
+          persist({
+            name: 'killa-persist',
+            revalidate: false,       // disable auto-revalidate on focus
+            revalidateTimeout: 300   // or increase the delay (ms)
+          })
+        ]
+      }
+    )
+    ```
+  </Tab>
+</Tabs>
+
+### Custom storage adapter
+
+You can pass any object that implements the `CustomStorage<T>` interface. This is useful for React Native (`AsyncStorage`-compatible), in-memory storage for tests, or any other backend:
+
+```ts
+import { createStore } from 'killa'
+import { persist } from 'killa/persist'
+import type { CustomStorage } from 'killa/persist'
+
+const inMemoryStorage: CustomStorage<unknown> = (() => {
+  const store = new Map<string, unknown>()
+  return {
+    getItem: (name) => store.get(name) ?? null,
+    setItem: (name, value) => store.set(name, value),
+    removeItem: (name) => store.delete(name)
+  }
+})()
+
+const appStore = createStore(
+  { counter: 0 },
+  {
+    use: [
+      persist({
+        name: 'app-store',
+        storage: inMemoryStorage
+      })
+    ]
+  }
+)
+```
+
+### Manually triggering rehydration
+
+Call `store.persist.rehydrate()` to pull the latest value from storage at any time — for example, after a background sync:
+
+```js
+async function syncFromServer() {
+  const data = await fetchLatestState()
+  localStorage.setItem('my-store', JSON.stringify(data))
+
+  // Now rehydrate the store from the updated storage value
+  store.persist.rehydrate()
+}
+```
+
+### Checking hydration status
+
+Use `store.persist.hydrated()` to determine whether the store has loaded persisted state yet. This is useful when rendering server-side or preventing a flash of un-persisted state:
+
+```js
+function render() {
+  if (!store.persist.hydrated()) {
+    return // wait until hydration is complete
+  }
+
+  const { counter } = store.getState()
+  document.getElementById('counter').textContent = counter
+}
+
+store.subscribe(render)
+render()
+```
+
+## CDN usage
+
+`persist` is part of the `killaMiddlewares` bundle:
+
+<CodeGroup>
+
+```html unpkg
+<script src="https://unpkg.com/killa@1.10.0/dist/umd/killaMiddlewares.min.js"></script>
+```
+
+```html jsDelivr
+<script src="https://cdn.jsdelivr.net/npm/killa@1.10.0/dist/umd/killaMiddlewares.min.js"></script>
+```
+
+</CodeGroup>
+
+```html
+<script src="https://unpkg.com/killa@1.10.0/dist/umd/killaMiddlewares.min.js"></script>
+<script>
+  const { persist, normalizeStorage } = window.killaMiddlewares
+
+  const store = window.killa.createStore(
+    { counter: 0 },
+    {
+      use: [
+        persist({
+          name: 'killa-persist',
+          storage: normalizeStorage(() => sessionStorage)
+        })
+      ]
+    }
+  )
+</script>
+```

@@ -1,0 +1,149 @@
+---
+title: Actions
+description: Encapsulate state logic inside a Killa store using the function initializer pattern.
+---
+
+Killa supports defining actions — methods that read and update state — directly inside the store. This pattern uses a **function initializer** instead of a plain object.
+
+## Function initializer pattern
+
+Instead of passing a plain object to `createStore`, pass a function that receives `get` and `set`:
+
+```js
+import { createStore } from 'killa'
+
+const store = createStore((get, set) => ({
+  count: 1,
+  inc: () => set(() => ({ count: get().count + 1 })),
+  getCount: () => get().count
+}))
+
+store.getState().inc()      // count becomes 2
+store.getState().getCount() // 2
+```
+
+- `get` is `store.getState` — returns a deep clone of the current state
+- `set` is `store.setState` — updates state via an updater function
+
+The function must return a plain object. All keys become part of the store state, including functions.
+
+## Defining actions
+
+Actions are just functions stored as state fields. Define them alongside the state they operate on:
+
+```js
+const store = createStore((get, set) => ({
+  count: 0,
+
+  inc: () =>
+    set(() => ({ count: get().count + 1 })),
+
+  dec: () =>
+    set(() => ({ count: get().count - 1 })),
+
+  reset: () =>
+    set(() => ({ count: 0 })),
+
+  incrementBy: (amount) =>
+    set(() => ({ count: get().count + amount }))
+}))
+
+const { inc, dec, reset, incrementBy } = store.getState()
+
+inc()           // count: 1
+inc()           // count: 2
+dec()           // count: 1
+incrementBy(10) // count: 11
+reset()         // count: 0
+```
+
+<Note>
+  Because `getState()` returns a clone, you must call it each time you want the latest action references. Destructuring once at the top is fine when you only need the action functions, but avoid caching state values this way.
+</Note>
+
+## Comparison with external updates
+
+You can also update a store from outside using `setState` directly. The two approaches are functionally equivalent for simple cases:
+
+<CodeGroup>
+
+```js internal actions
+// Logic lives inside the store
+const store = createStore((get, set) => ({
+  count: 0,
+  inc: () => set(() => ({ count: get().count + 1 }))
+}))
+
+store.getState().inc()
+```
+
+```js external setState
+// Logic lives outside the store
+const store = createStore({ count: 0 })
+
+const inc = () =>
+  store.setState((state) => ({ count: state.count + 1 }))
+
+inc()
+```
+
+</CodeGroup>
+
+Internal actions are preferred when:
+- The logic is tightly coupled to the state shape
+- You want to co-locate state and behavior
+- You are building a self-contained module
+
+External `setState` is preferred when:
+- The logic is defined in a separate layer (e.g., a controller or service)
+- You want to avoid coupling the store to application logic
+
+## TypeScript
+
+Define an interface for your state including action signatures, then pass it as the type parameter:
+
+```ts
+import { createStore } from 'killa'
+
+interface CounterState {
+  count: number
+  inc: () => void
+  dec: () => void
+  reset: () => void
+}
+
+const store = createStore<CounterState>((get, set) => ({
+  count: 0,
+
+  inc: () =>
+    set(() => ({ count: get().count + 1 })),
+
+  dec: () =>
+    set(() => ({ count: get().count - 1 })),
+
+  reset: () =>
+    set(() => ({ count: 0 }))
+}))
+
+// Fully typed
+const state = store.getState()
+state.count // number
+state.inc   // () => void
+```
+
+<Tip>
+  Include action types in your state interface. This gives you autocomplete on `store.getState()` and catches mismatches at compile time.
+</Tip>
+
+## API reference
+
+<AccordionGroup>
+  <Accordion title="createStore(initializer)" defaultOpen={false}>
+    When called with a function, `createStore` passes two arguments to the initializer:
+
+    - `get: () => T` — returns a deep clone of the current state (same as `store.getState`).
+    - `set: (fn: (state: T) => Partial<T>, force?: boolean) => void` — updates state (same as `store.setState`).
+
+    The return value of the initializer becomes the initial state of the store, including any functions defined on it.
+  </Accordion>
+</AccordionGroup>

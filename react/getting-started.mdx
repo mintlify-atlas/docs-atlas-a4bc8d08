@@ -1,0 +1,164 @@
+---
+title: Getting started with React
+description: Learn how to connect Killa stores to React components using the useStore hook.
+---
+
+Killa integrates with React through the `killa/react` package, which exposes the `useStore` hook. The hook is built on top of React's `useSyncExternalStore`, which means it is safe for concurrent rendering and server-side rendering.
+
+<Info>
+  Killa's React integration requires React 18 or later. It uses `useSyncExternalStore` internally to guarantee consistency during concurrent renders.
+</Info>
+
+## Installation
+
+<Tabs>
+  <Tab title="npm">
+    ```bash
+    npm install killa
+    ```
+  </Tab>
+  <Tab title="pnpm">
+    ```bash
+    pnpm add killa
+    ```
+  </Tab>
+  <Tab title="yarn">
+    ```bash
+    yarn add killa
+    ```
+  </Tab>
+</Tabs>
+
+## Create a store
+
+Create your store at module level — outside of any component. This makes the store shared across your entire application.
+
+```ts store.ts
+import { createStore } from 'killa'
+
+export const store = createStore({ counter: 0, type: '', filter: '' })
+```
+
+Stores created with `createStore` hold a plain state object. You can place this file anywhere in your project and import it wherever you need it.
+
+## Connect a component
+
+Import `useStore` from `killa/react` and pass your store as the first argument. The hook returns a `[state, setState]` tuple — similar to React's own `useState`.
+
+```tsx Counter.tsx
+import { useStore } from 'killa/react'
+import { store } from './store'
+
+const Counter = () => {
+  const [state, setState] = useStore(store, (state) => ({
+    counter: state.counter,
+    filter: state.filter
+  }))
+
+  const handleIncrement = () => {
+    setState((state) => ({
+      ...state,
+      counter: state.counter + 1
+    }))
+  }
+
+  return (
+    <div>
+      <p>Counter: {state.counter}</p>
+      <button onClick={handleIncrement}>Counter +1</button>
+    </div>
+  )
+}
+```
+
+The selector function `(state) => ({ counter: state.counter, filter: state.filter })` controls which slice of state the component subscribes to. The component only re-renders when those specific values change.
+
+## Full working example
+
+<Steps>
+  <Step title="Define the store">
+    ```ts store.ts
+    import { createStore } from 'killa'
+
+    export const store = createStore({
+      counter: 0,
+      type: '',
+      filter: ''
+    })
+    ```
+  </Step>
+
+  <Step title="Build the component">
+    ```tsx Counter.tsx
+    import { useStore } from 'killa/react'
+    import { store } from './store'
+
+    const Counter = () => {
+      const [state, setState] = useStore(store, (state) => ({
+        counter: state.counter,
+        filter: state.filter
+      }))
+
+      const handleIncrement = () => {
+        setState((state) => ({
+          ...state,
+          counter: state.counter + 1
+        }))
+      }
+
+      return (
+        <div>
+          <p>Counter: {state.counter}</p>
+          <button onClick={handleIncrement}>Counter +1</button>
+        </div>
+      )
+    }
+
+    export default Counter
+    ```
+  </Step>
+
+  <Step title="Use it in your app">
+    ```tsx App.tsx
+    import Counter from './Counter'
+
+    export default function App() {
+      return <Counter />
+    }
+    ```
+  </Step>
+</Steps>
+
+## How setState works
+
+`setState` returned by `useStore` is identical to calling `store.setState` directly. You can use either:
+
+<CodeGroup>
+
+```tsx Functional update (recommended)
+setState((state) => ({
+  ...state,
+  counter: state.counter + 1
+}))
+```
+
+```tsx Direct update
+setState({ counter: 5, type: '', filter: '' })
+```
+
+</CodeGroup>
+
+<Tip>
+  Use the functional form when your new state depends on the current state. This avoids stale closure bugs.
+</Tip>
+
+## Next steps
+
+<Columns cols={2}>
+  <Card title="useStore hook" icon="hook" href="/react/use-store">
+    Learn about selectors, deep equality, and the full hook signature.
+  </Card>
+  <Card title="Silent states" icon="eye-off" href="/react/silent-states">
+    Read store values in event handlers without causing re-renders.
+  </Card>
+</Columns>

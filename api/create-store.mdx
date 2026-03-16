@@ -1,0 +1,151 @@
+---
+title: createStore
+description: Create a new Killa state store from a plain object or initializer function.
+---
+
+The `createStore` function is the core of Killa. It initializes a store, wires up state management internals, and optionally applies middleware.
+
+## Import
+
+```ts
+import { createStore } from 'killa'
+```
+
+## Signature
+
+```ts
+function createStore<T extends Record<string, any>>(
+  initializer: T | ((getState: () => T, setState: Store<T>['setState']) => T),
+  options?: Options<T>
+): Store<T>
+```
+
+## Parameters
+
+<ParamField path="initializer" type="T | (getState: () => T, setState: Store<T>['setState']) => T" required>
+  The initial state for the store. Accepts either:
+
+  - A **plain object** — used directly as the initial state.
+  - An **initializer function** — receives `getState` and `setState` and must return the initial state object. Use this form when you need to define actions or computed values inline.
+
+  Throws `'Store must be an object.'` if the initializer does not return a plain object.
+</ParamField>
+
+<ParamField path="options" type="Options<T>">
+  Optional configuration for the store.
+
+  <Expandable title="options properties">
+    <ParamField path="options.compare" type="(a: unknown, b: unknown) => boolean">
+      Custom equality comparator used to decide whether state has changed before notifying subscribers. Defaults to deep equality (`deepEquals`).
+    </ParamField>
+
+    <ParamField path="options.use" type="((store: Store<T>) => void)[]">
+      Array of middleware functions. Each middleware receives the fully constructed store object and can extend or wrap it. Applied in order after the store is created.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Return value
+
+Returns a `Store<T>` object. In production (`NODE_ENV !== 'test'`) the object is frozen with `Object.freeze`, so its top-level properties cannot be reassigned.
+
+See [Store methods](/api/store-methods) for the full method reference.
+
+## Errors
+
+<Warning>
+  `createStore` throws `'Store must be an object.'` if the resolved initial state is not a plain object. Make sure your initializer returns an object and not a primitive, array, or `null`.
+</Warning>
+
+## Usage
+
+### Plain object initializer
+
+The simplest usage — pass a plain object and Killa infers the type:
+
+```ts
+import { createStore } from 'killa'
+
+const counterStore = createStore({ count: 0, step: 1 })
+
+counterStore.getState() // { count: 0, step: 1 }
+
+counterStore.setState((state) => ({ count: state.count + state.step }))
+```
+
+### Function initializer
+
+Use the function form when you want to co-locate actions with the state:
+
+```ts
+import { createStore } from 'killa'
+
+interface BearState {
+  bears: number
+  fish: number
+  addBear: () => void
+  eatFish: () => void
+}
+
+const bearStore = createStore<BearState>((getState, setState) => ({
+  bears: 0,
+  fish: 10,
+  addBear: () =>
+    setState((state) => ({ bears: state.bears + 1 })),
+  eatFish: () =>
+    setState((state) => ({ fish: Math.max(0, state.fish - 1) })),
+}))
+
+bearStore.getState().addBear()
+bearStore.getState() // { bears: 1, fish: 10, ... }
+```
+
+### With middleware
+
+Apply middleware via `options.use`:
+
+```ts
+import { createStore } from 'killa'
+import { persist } from 'killa/persist'
+
+const userStore = createStore(
+  { name: '', loggedIn: false },
+  {
+    use: [
+      persist({ name: 'user-store' }),
+    ],
+  }
+)
+```
+
+### Custom equality comparator
+
+Replace the default deep equality check with a shallow comparator or a library function:
+
+```ts
+import { createStore } from 'killa'
+import { shallowEqual } from 'some-lib'
+
+const store = createStore(
+  { items: [1, 2, 3] },
+  { compare: shallowEqual }
+)
+```
+
+### TypeScript with explicit generic
+
+When using the plain object form you can still pass an explicit generic to enforce shape:
+
+```ts
+import { createStore } from 'killa'
+
+interface Settings {
+  theme: 'light' | 'dark'
+  language: string
+}
+
+const settingsStore = createStore<Settings>({
+  theme: 'light',
+  language: 'en',
+})
+```

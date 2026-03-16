@@ -1,0 +1,125 @@
+---
+title: "Middlewares"
+description: "Extend and augment Killa stores with composable middleware functions."
+---
+
+Middlewares are functions that receive a store and augment it with additional behavior — persistence, logging, devtools integration, or anything else you need.
+
+## What is a middleware?
+
+A middleware is a function with the following signature:
+
+```ts
+(store: Store<T>) => void
+```
+
+It receives the store instance and can call `store.getState()`, `store.setState()`, `store.subscribe()`, or attach new properties to the store object. Middlewares are applied once during store creation.
+
+## Applying middlewares
+
+Pass middlewares through the `use` option in `createStore`:
+
+```js
+import { createStore } from 'killa'
+import { persist } from 'killa/persist'
+
+const store = createStore(
+  { counter: 0, filter: '' },
+  {
+    use: [persist({ name: 'my-store' })]
+  }
+)
+```
+
+You can apply multiple middlewares — they are executed in order:
+
+```js
+const store = createStore(
+  initialState,
+  {
+    use: [middleware1, middleware2, middleware3]
+  }
+)
+```
+
+<Note>
+  The `use` option accepts an array of middleware factory return values. Each middleware factory (like `persist(config)`) returns the actual `(store) => void` function.
+</Note>
+
+## Available middlewares
+
+<Columns cols={2}>
+  <Card title="Persist" icon="hard-drive" href="/middlewares/persist">
+    Automatically save and rehydrate store state using localStorage, sessionStorage, or any custom storage backend.
+  </Card>
+</Columns>
+
+## Writing a custom middleware
+
+A middleware is a plain function. The pattern is to write a factory function that accepts configuration and returns the middleware:
+
+```ts
+import { Store } from 'killa'
+
+function logger<T>(options: { prefix?: string } = {}) {
+  return (store: Store<T>) => {
+    const prefix = options.prefix ?? '[killa]'
+
+    store.subscribe((state, prevState) => {
+      console.log(prefix, 'state changed', { prevState, state })
+    })
+  }
+}
+
+// Apply it:
+const store = createStore(
+  { counter: 0 },
+  { use: [logger({ prefix: '[counter-store]' })] }
+)
+```
+
+You can also attach properties directly to the store:
+
+```ts
+function timestamps<T>() {
+  return (store: Store<T> & { lastUpdated?: number }) => {
+    store.subscribe(() => {
+      store.lastUpdated = Date.now()
+    })
+  }
+}
+```
+
+<Tip>
+  Keep middleware side effects scoped to the store instance. Avoid global state inside middleware factories so that multiple stores can use the same middleware independently.
+</Tip>
+
+## CDN usage
+
+When using Killa in the browser via a `<script>` tag, middlewares are available in a separate bundle.
+
+<CodeGroup>
+
+```html unpkg
+<script src="https://unpkg.com/killa@1.10.0/dist/umd/killaMiddlewares.min.js"></script>
+```
+
+```html jsDelivr
+<script src="https://cdn.jsdelivr.net/npm/killa@1.10.0/dist/umd/killaMiddlewares.min.js"></script>
+```
+
+</CodeGroup>
+
+After loading the script, middlewares are available on `window.killaMiddlewares`:
+
+```html
+<script src="https://unpkg.com/killa@1.10.0/dist/umd/killaMiddlewares.min.js"></script>
+<script>
+  const { persist } = window.killaMiddlewares
+
+  const store = window.killa.createStore(
+    { counter: 0 },
+    { use: [persist({ name: 'my-store' })] }
+  )
+</script>
+```

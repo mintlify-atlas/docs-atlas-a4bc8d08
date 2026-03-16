@@ -1,0 +1,111 @@
+---
+title: State updates
+description: Update, merge, replace, and reset state in a Killa store.
+---
+
+Killa provides `setState` and `resetState` for modifying store state. Both methods are safe by default — they clone state, run equality checks, and notify subscribers only when something actually changed.
+
+## setState
+
+`store.setState(fn)` accepts an updater function. The function receives the current state and must return a partial state object:
+
+```js
+import { createStore } from 'killa'
+
+const store = createStore({ counter: 0, label: 'default' })
+
+store.setState(() => ({ counter: 1 }))
+store.getState() // { counter: 1, label: 'default' }
+```
+
+The returned object is **merged** into the existing state using `Object.assign`. Fields you don't return are preserved.
+
+### Deep equality check
+
+Before applying an update, Killa runs a deep equality check between the current state and the new state. If nothing changed, subscribers are **not** notified:
+
+```js
+const store = createStore({ counter: 0 })
+
+let callCount = 0
+store.subscribe(() => callCount++)
+
+store.setState(() => ({ counter: 0 })) // same value — no notification
+console.log(callCount) // 0
+
+store.setState(() => ({ counter: 1 })) // different value — notifies
+console.log(callCount) // 1
+```
+
+<Tip>
+  This makes it safe to call `setState` frequently without worrying about redundant renders or side effects in subscribers.
+</Tip>
+
+### Force replace (no merge)
+
+Pass `true` as the second argument to bypass the merge and replace state entirely:
+
+```js
+const store = createStore({ counter: 0, label: 'hello' })
+
+// Without force: merges — label is preserved
+store.setState(() => ({ counter: 5 }))
+store.getState() // { counter: 5, label: 'hello' }
+
+// With force: replaces — label is gone
+store.setState(() => ({ counter: 10 }), true)
+store.getState() // { counter: 10 }
+```
+
+<Warning>
+  Using `force = true` drops all state fields not returned by the updater function. Use this only when you intend a full replacement.
+</Warning>
+
+## resetState
+
+`store.resetState()` resets the store back to the initial state provided to `createStore`:
+
+```js
+const store = createStore({ counter: 0, type: '', filter: '' })
+
+store.setState(() => ({ counter: 5, type: 'active' }))
+store.getState() // { counter: 5, type: 'active', filter: '' }
+
+store.resetState()
+store.getState() // { counter: 0, type: '', filter: '' }
+```
+
+### Reset with a new state
+
+You can pass a new state object to `resetState`. This both resets the store and establishes a new initial state baseline:
+
+```js
+const store = createStore({ counter: 0, type: '', filter: '' })
+
+store.resetState({ notes: [] })
+store.getState() // { notes: [] }
+```
+
+<Note>
+  `resetState` calls `setState` with `force = true` internally, so the state is fully replaced — not merged.
+</Note>
+
+## API reference
+
+<AccordionGroup>
+  <Accordion title="setState(fn, force?)">
+    Updates the store state by merging the object returned by `fn` into the current state.
+
+    **Parameters:**
+    - `fn: (state: T) => Partial<T>` — receives current state, returns partial new state.
+    - `force?: boolean` (default: `false`) — when `true`, replaces state entirely instead of merging.
+
+    Subscribers are only notified if the new state differs from the current state (deep equality check).
+  </Accordion>
+  <Accordion title="resetState(state?)">
+    Resets the store to its initial state.
+
+    **Parameters:**
+    - `state?: T` (optional) — when provided, overwrites state with this value instead of reverting to the original initial state.
+  </Accordion>
+</AccordionGroup>

@@ -1,0 +1,55 @@
+---
+title: Introduction
+description: Killa is a small and lightweight state management library for vanilla JavaScript and React.
+---
+
+Killa is a state management library built for both vanilla JavaScript and React applications. It takes inspiration from [Zustand](https://zustand-demo.pmnd.rs/) and [SWR](https://swr.vercel.app/), offering a minimal API that keeps your state predictable and your bundles small.
+
+## Key features
+
+<Columns cols={2}>
+  <Card title="Immutable state" icon="lock">
+    Every call to `getState()` returns a deep clone of the current state. Mutations to the returned object never affect the store.
+  </Card>
+  <Card title="Selective subscriptions" icon="filter">
+    Subscribe to a slice of state using a selector function. Listeners are only called when the selected slice actually changes.
+  </Card>
+  <Card title="React and vanilla support" icon="code">
+    Use the same `createStore` API in any JavaScript environment. The `killa/react` export provides a `useStore` hook that integrates with React 18's concurrent rendering via `useSyncExternalStore`.
+  </Card>
+  <Card title="Persist middleware" icon="database">
+    Persist state to `localStorage`, `sessionStorage`, or any custom storage adapter using the built-in `persist` middleware from `killa/persist`.
+  </Card>
+  <Card title="TypeScript-first" icon="file-code">
+    Full TypeScript type definitions are included in every package export. No separate `@types` package required.
+  </Card>
+  <Card title="Zero config" icon="bolt">
+    No reducers, no action types, no boilerplate. Pass an object (or an initializer function) to `createStore` and you're done.
+  </Card>
+</Columns>
+
+## When to use Killa
+
+Killa works well when you need shared state that is accessible both inside and outside React components — for example, stores driven by WebSocket events, background polling, or non-React UI code.
+
+It is a good fit if you want:
+
+- A small bundle size with no runtime dependencies beyond `just-clone` and `use-sync-external-store`.
+- Selective re-renders in React without writing `useMemo` or custom equality checks by hand.
+- State that lives outside the React tree and can be read or updated from anywhere.
+- A straightforward path to persisting state across page reloads.
+
+<Note>
+  Killa requires Node.js >= 12 and, for React integration, React >= 18.0.0.
+</Note>
+
+## Get started
+
+<Columns cols={2}>
+  <Card title="Installation" icon="package" href="/installation">
+    Install Killa via npm, yarn, or pnpm, or load it directly from a CDN.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Create your first store and connect it to a React component in minutes.
+  </Card>
+</Columns>

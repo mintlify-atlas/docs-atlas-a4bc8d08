@@ -1,0 +1,207 @@
+---
+title: useStore
+description: API reference for the useStore hook — selectors, deep equality, typed state, and multi-component patterns.
+---
+
+`useStore` is the primary hook for reading and writing Killa store state in React components.
+
+## Signature
+
+```ts
+useStore(
+  store: Store<T>,
+  selector?: ((state: T) => U) | null,
+  silect?: boolean
+): [U, Store<T>['setState']]
+```
+
+## Parameters
+
+<ParamField path="store" type="Store<T>" required>
+  A Killa store created with `createStore`. The hook validates that the store has the internal `$$store` symbol — passing an invalid object throws an error.
+</ParamField>
+
+<ParamField path="selector" type="(state: T) => U">
+  A function that derives the slice of state you want to subscribe to. The component re-renders only when the selected value changes.
+
+  - If omitted, the entire state is returned.
+  - If `null`, the full state is returned without subscribing (equivalent to `silect = true`). See [silent states](/react/silent-states).
+</ParamField>
+
+<ParamField path="silect" type="boolean" default="false">
+  When `true`, the state is captured once at mount and never causes re-renders, regardless of what the selector returns. Useful for reading state in event handlers. See [silent states](/react/silent-states).
+</ParamField>
+
+## Return value
+
+The hook returns a two-element tuple:
+
+| Index | Type | Description |
+|-------|------|-------------|
+| `0` | `U` | The current selected state value. |
+| `1` | `Store<T>['setState']` | The store's `setState` function. |
+
+## Selectors
+
+A selector is a pure function that takes the full store state and returns a subset of it. Killa uses deep equality to compare selector outputs between renders, so returning a new object reference with the same values does not trigger a re-render.
+
+### Selecting a primitive
+
+When a selector returns a primitive, the component re-renders only when that primitive changes.
+
+```tsx
+const CounterDisplay = () => {
+  const [counter, setState] = useStore(store, (state) => state.counter)
+
+  return <p>Count: {counter}</p>
+}
+```
+
+### Selecting an object
+
+When a selector returns an object, Killa performs a **deep equality** comparison between the previous and next values. If all nested properties are equal, no re-render occurs.
+
+```tsx
+const FilteredView = () => {
+  const [state, setState] = useStore(store, (state) => ({
+    counter: state.counter,
+    filter: state.filter
+  }))
+
+  return (
+    <div>
+      <p>Counter: {state.counter}</p>
+      <p>Filter: {state.filter}</p>
+    </div>
+  )
+}
+```
+
+<Note>
+  Deep equality comparison is performed on every state change. Avoid returning large objects or deeply nested structures from selectors when performance is critical — prefer selecting only the fields you need.
+</Note>
+
+## Multiple components, one store
+
+You can connect multiple components to the same store with different selectors. Each component subscribes independently and re-renders only when its selected slice changes.
+
+```tsx
+import { createStore } from 'killa'
+import { useStore } from 'killa/react'
+
+const store = createStore({ counter: 0, type: '', filter: '' })
+
+// Re-renders only when `counter` changes
+const CounterDisplay = () => {
+  const [counter] = useStore(store, (state) => state.counter)
+  return <p>Counter: {counter}</p>
+}
+
+// Re-renders only when `filter` changes
+const FilterDisplay = () => {
+  const [filter] = useStore(store, (state) => state.filter)
+  return <p>Filter: {filter}</p>
+}
+
+// Re-renders when either `counter` or `type` changes
+const StatusPanel = () => {
+  const [state, setState] = useStore(store, (state) => ({
+    counter: state.counter,
+    type: state.type
+  }))
+
+  return (
+    <div>
+      <p>{state.counter} — {state.type}</p>
+      <button onClick={() => setState((s) => ({ ...s, counter: s.counter + 1 }))}>
+        Increment
+      </button>
+    </div>
+  )
+}
+```
+
+## TypeScript
+
+Killa stores are fully generic. When you create a typed store, `useStore` infers state and selector types automatically.
+
+```ts store.ts
+import { createStore } from 'killa'
+
+interface AppState {
+  counter: number
+  type: string
+  filter: string
+}
+
+export const store = createStore<AppState>({
+  counter: 0,
+  type: '',
+  filter: ''
+})
+```
+
+```tsx Counter.tsx
+import { useStore } from 'killa/react'
+import { store } from './store'
+
+const Counter = () => {
+  // `state` is inferred as `{ counter: number; filter: string }`
+  const [state, setState] = useStore(store, (state) => ({
+    counter: state.counter,
+    filter: state.filter
+  }))
+
+  const increment = () => {
+    setState((s) => ({ ...s, counter: s.counter + 1 }))
+  }
+
+  return (
+    <div>
+      <p>Counter: {state.counter}</p>
+      <button onClick={increment}>+1</button>
+    </div>
+  )
+}
+```
+
+If you need to explicitly annotate the selector return type, pass it as the second type parameter:
+
+```ts
+const [counter, setState] = useStore<AppState, number>(
+  store,
+  (state) => state.counter
+)
+```
+
+## Error handling
+
+`useStore` validates its first argument at runtime. If you pass a value that is not a valid Killa store, it throws:
+
+```
+Error: Provide a valid store for useStore.
+```
+
+This check relies on the internal `$$store` symbol that `createStore` attaches to every store object.
+
+<AccordionGroup>
+  <Accordion title="Why does my component re-render too often?">
+    The most common cause is a selector that returns a new object reference on every call without changing the values inside:
+
+    ```tsx
+    // Bad — new object every render, but deep-equal values still avoid re-renders
+    // This is fine for objects, but watch out for arrays:
+    const [ids] = useStore(store, (state) => state.items.map((i) => i.id))
+    ```
+
+    Because Killa uses deep equality, even array results are compared correctly. If re-renders are still occurring, verify that the actual values in the store are changing.
+  </Accordion>
+
+  <Accordion title="Can I call useStore outside a component?">
+    No. `useStore` is a React hook and must follow the [Rules of Hooks](https://react.dev/reference/rules/rules-of-hooks). To read state outside a component, use `store.getState()` directly.
+  </Accordion>
+
+  <Accordion title="Can I use the same store in multiple components without a Provider?">
+    Yes. Killa stores are plain objects created at module level. No Context or Provider is required — just import the store and call `useStore`.
+  </Accordion>
+</AccordionGroup>

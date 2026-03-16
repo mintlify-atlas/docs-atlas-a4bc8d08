@@ -1,97 +1,195 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Killa"
+description: "A small and lightweight state management library for vanilla JavaScript and React"
+mode: "custom"
 ---
 
-## Setting up
+<div style={{background: "#020627", minHeight: "100vh", fontFamily: "Inter, sans-serif"}}>
 
-Get your documentation site up and running in minutes.
+<div style={{maxWidth: "960px", margin: "0 auto", padding: "80px 24px 64px"}}>
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+<div style={{textAlign: "center", marginBottom: "64px"}}>
+  <h1 style={{fontSize: "48px", fontWeight: "700", color: "#ffffff", lineHeight: "1.15", margin: "0 0 20px"}}>
+    State management,<br />done right
+  </h1>
+  <p style={{fontSize: "20px", color: "#cfd0d2", maxWidth: "600px", margin: "0 auto 40px", lineHeight: "1.6"}}>
+    Killa is a small and lightweight state management library for vanilla JavaScript and React — inspired by Zustand and SWR.
+  </p>
+  <div style={{display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap"}}>
+    <a
+      href="/quickstart"
+      style={{
+        background: "#238636",
+        color: "#ffffff",
+        padding: "12px 24px",
+        borderRadius: "6px",
+        textDecoration: "none",
+        fontWeight: "600",
+        fontSize: "16px"
+      }}
+    >
+      Get Started
+    </a>
+    <a
+      href="/installation"
+      style={{
+        background: "transparent",
+        color: "#ffffff",
+        padding: "12px 24px",
+        borderRadius: "6px",
+        textDecoration: "none",
+        fontWeight: "600",
+        fontSize: "16px",
+        border: "1px solid rgba(96,99,146,1)"
+      }}
+    >
+      Installation
+    </a>
+  </div>
+</div>
 
-## Make it yours
+<div style={{
+  background: "rgba(48,54,79,0.6)",
+  border: "1px solid rgba(96,99,146,1)",
+  borderRadius: "12px",
+  padding: "24px",
+  marginBottom: "64px"
+}}>
 
-Design a docs site that looks great and empowers your users.
+```bash
+npm install killa
+```
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+</div>
+
+<div style={{marginBottom: "64px"}}>
+  <h2 style={{fontSize: "38px", fontWeight: "700", color: "#ffffff", textAlign: "center", marginBottom: "40px"}}>
+    Why Killa?
+  </h2>
+
+<CardGroup cols={3}>
+  <Card title="Lightweight" icon="feather">
+    Zero bloat. Killa adds minimal overhead to your bundle with no unnecessary abstractions.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Immutable State" icon="lock">
+    Internal state is always immutable. Deep equality checks prevent unnecessary re-renders.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Selective Subscriptions" icon="filter">
+    Subscribe only to the state slices you need. Components re-render only when their selected state changes.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="React and Vanilla" icon="code">
+    Works with plain JavaScript and React. One API for both environments.
   </Card>
-</Columns>
+  <Card title="Persist Middleware" icon="database">
+    Built-in persistence with localStorage, sessionStorage, or any custom storage backend.
+  </Card>
+  <Card title="TypeScript First" icon="brackets-curly">
+    Full TypeScript support with exported type definitions for all public APIs.
+  </Card>
+</CardGroup>
 
-## Create beautiful pages
+</div>
 
-Everything you need to create world-class documentation.
+<div style={{marginBottom: "64px"}}>
+  <h2 style={{fontSize: "38px", fontWeight: "700", color: "#ffffff", textAlign: "center", marginBottom: "40px"}}>
+    Quick example
+  </h2>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+<Tabs>
+  <Tab title="Vanilla JS">
+    ```js
+    import { createStore } from 'killa'
 
-## Need inspiration?
+    const store = createStore({ counter: 0 })
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+    store.subscribe((state, prevState) => {
+      console.log('State changed:', state.counter)
+    }, (state) => state.counter)
+
+    store.setState((state) => ({
+      ...state,
+      counter: state.counter + 1
+    }))
+
+    store.getState() // { counter: 1 }
+    ```
+  </Tab>
+  <Tab title="React">
+    ```jsx
+    import { createStore } from 'killa'
+    import { useStore } from 'killa/react'
+
+    const store = createStore({ counter: 0 })
+
+    export function Counter() {
+      const [state, setState] = useStore(store, (s) => ({
+        counter: s.counter
+      }))
+
+      return (
+        <div>
+          <p>Counter: {state.counter}</p>
+          <button onClick={() => setState((s) => ({ ...s, counter: s.counter + 1 }))}>
+            +1
+          </button>
+        </div>
+      )
+    }
+    ```
+  </Tab>
+  <Tab title="With Actions">
+    ```js
+    import { createStore } from 'killa'
+
+    const store = createStore((get, set) => ({
+      count: 0,
+      inc: () => set(() => ({ count: get().count + 1 })),
+      dec: () => set(() => ({ count: get().count - 1 })),
+      reset: () => set(() => ({ count: 0 }))
+    }))
+
+    store.getState().inc()
+    store.getState().inc()
+    store.getState().count // 2
+    ```
+  </Tab>
+</Tabs>
+
+</div>
+
+<div style={{marginBottom: "64px"}}>
+  <h2 style={{fontSize: "38px", fontWeight: "700", color: "#ffffff", textAlign: "center", marginBottom: "40px"}}>
+    Explore the docs
+  </h2>
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install Killa via npm, yarn, pnpm, or use a CDN script tag for the browser.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Build your first store and wire it to React in under 5 minutes.
+  </Card>
+  <Card title="Vanilla API" icon="js" href="/vanilla/getting-started">
+    Create stores, read state, update state, and subscribe to changes in plain JavaScript.
+  </Card>
+  <Card title="React API" icon="react" href="/react/getting-started">
+    Use useStore to bind Killa stores to React components with fine-grained re-render control.
+  </Card>
+  <Card title="Persist Middleware" icon="hard-drive" href="/middlewares/persist">
+    Persist and rehydrate your store across page reloads using any Web Storage API.
+  </Card>
+  <Card title="API Reference" icon="book" href="/api/create-store">
+    Full TypeScript type signatures and parameter documentation for every public export.
+  </Card>
+</CardGroup>
+
+</div>
+
+<div style={{textAlign: "center", padding: "32px 0", borderTop: "1px solid rgba(96,99,146,0.4)"}}>
+  <p style={{color: "#848c8e", fontSize: "14px"}}>
+    MIT License · <a href="https://github.com/JesuHrz/killa" style={{color: "#cfd0d2"}}>GitHub</a>
+  </p>
+</div>
+
+</div>
+</div>

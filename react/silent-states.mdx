@@ -1,0 +1,135 @@
+---
+title: Silent states
+description: Read store state in event handlers and callbacks without subscribing to re-renders.
+---
+
+A silent state is state that is captured at component mount time and never causes the component to re-render, regardless of changes to the store.
+
+This is useful when you need to read the current store value inside an event handler or callback, but you do not want that component to re-render every time the store changes.
+
+## How silent states work
+
+Normally, `useStore` subscribes to the store and re-renders the component whenever the selected value changes. With a silent state, the value is frozen at mount time using a `useRef`. Subsequent store updates are invisible to this component.
+
+`setState` still works as expected from a silent hook — it updates the store and causes other subscribed components to re-render. Only the component holding the silent state is unaffected.
+
+<Warning>
+  Do not use silent state values in render output. The value will be stale after the first store update and your UI will show incorrect data.
+</Warning>
+
+## Two ways to use silent state
+
+### Whole store, silent
+
+Pass `null` as the selector. Killa treats this as selecting the entire state with `silect` implicitly set to `true`.
+
+```tsx
+const [state, setState] = useStore(store, null)
+```
+
+`state` is the full store state captured at mount. The component never re-renders due to store changes.
+
+### Specific field, silent
+
+Provide a selector and pass `true` as the third argument. The selector runs once at mount to capture the initial value, then is ignored.
+
+```tsx
+const [counter, setState] = useStore(store, (state) => state.counter, true)
+```
+
+`counter` is the value of `state.counter` at the time the component mounted.
+
+## Example: save button
+
+A save button needs to read the current form state when clicked, but it does not need to re-render every time the user types. Using a silent state avoids unnecessary re-renders for this component.
+
+```tsx SaveButton.tsx
+import { useStore } from 'killa/react'
+import { store } from './store'
+
+const SaveButton = () => {
+  // Capture the whole store silently — this component never re-renders from store changes
+  const [state, setState] = useStore(store, null)
+
+  const handleSave = () => {
+    // `state` reflects the value at mount time — use store.getState() for current value
+    // in event handlers that need fresh data
+    console.log('Saving:', store.getState())
+    // ... send to API
+  }
+
+  return <button onClick={handleSave}>Save</button>
+}
+```
+
+<Tip>
+  Inside event handlers, prefer calling `store.getState()` directly to get the freshest value. Silent state is most useful when you need a stable reference and the exact current value is not critical, or when you are passing `setState` to a child and want to avoid prop drilling without subscribing.
+</Tip>
+
+## Comparing the two approaches
+
+<Tabs>
+  <Tab title="Whole store silent (null selector)">
+    ```tsx
+    import { useStore } from 'killa/react'
+    import { store } from './store'
+
+    const SubmitPanel = () => {
+      // Full state, no subscription
+      const [state, setState] = useStore(store, null)
+
+      const handleSubmit = () => {
+        // Read fresh state at the moment of submission
+        const current = store.getState()
+        console.log('Submitting:', current)
+      }
+
+      return <button onClick={handleSubmit}>Submit</button>
+    }
+    ```
+  </Tab>
+  <Tab title="Specific field silent (silect: true)">
+    ```tsx
+    import { useStore } from 'killa/react'
+    import { store } from './store'
+
+    const LogCounter = () => {
+      // Only the counter field, no subscription
+      const [counter, setState] = useStore(
+        store,
+        (state) => state.counter,
+        true
+      )
+
+      const handleLog = () => {
+        console.log('Counter at mount was:', counter)
+      }
+
+      return <button onClick={handleLog}>Log counter</button>
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## setState still updates the store
+
+Even when using a silent state, the `setState` function returned by `useStore` is the same `store.setState`. Calling it updates the store for all other subscribed components.
+
+```tsx
+const [state, setState] = useStore(store, null)
+
+// This updates the store and re-renders other subscribed components,
+// but NOT this component.
+const reset = () => {
+  setState((s) => ({ ...s, counter: 0 }))
+}
+```
+
+## Quick reference
+
+| Usage | Selector | `silect` | Re-renders? |
+|-------|----------|----------|-------------|
+| `useStore(store, (s) => s.counter)` | primitive selector | `false` | Yes, when `counter` changes |
+| `useStore(store, (s) => ({ ... }))` | object selector | `false` | Yes, when deep-equal comparison fails |
+| `useStore(store, null)` | `null` (whole store) | implicit `true` | No |
+| `useStore(store, (s) => s.counter, true)` | primitive selector | `true` | No |

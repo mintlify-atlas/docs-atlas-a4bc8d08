@@ -1,0 +1,99 @@
+---
+title: State access
+description: Read current and initial state from a Killa store.
+---
+
+Killa provides two methods for reading state: `getState` for the current state and `getServerState` for the original initial state.
+
+## getState
+
+`store.getState()` returns a **deep clone** of the store's current state.
+
+```js
+import { createStore } from 'killa'
+
+const store = createStore({ counter: 0 })
+
+store.getState() // { counter: 0 }
+
+store.setState(() => ({ counter: 1 }))
+store.getState() // { counter: 1 }
+```
+
+### The returned object is a clone
+
+Because `getState()` clones state on every call, mutating the returned object does **not** affect the store:
+
+```js
+const store = createStore({ counter: 0 })
+
+const snapshot = store.getState()
+snapshot.counter = 42
+
+store.getState().counter // still 0
+```
+
+<Note>
+  This behavior is intentional. It prevents accidental state corruption and makes state changes explicit and traceable.
+</Note>
+
+If you need to hold a reference to state, treat the snapshot as read-only or use a subscriber to respond to future changes.
+
+## getServerState
+
+`store.getServerState()` returns the **initial state** passed to `createStore`. Unlike `getState`, it always returns the same value regardless of subsequent `setState` calls.
+
+```js
+const store = createStore({ counter: 0 })
+
+store.setState(() => ({ counter: 5 }))
+
+store.getState()       // { counter: 5 }
+store.getServerState() // { counter: 0 }
+```
+
+This is useful in SSR (server-side rendering) scenarios where a framework needs to hydrate the client with the initial server state.
+
+<Tip>
+  Use `getServerState()` as the source of truth for hydration. Use `getState()` for all runtime reads.
+</Tip>
+
+## TypeScript
+
+Pass a type parameter to `createStore` to get fully typed state from `getState()` and `getServerState()`:
+
+```ts
+import { createStore } from 'killa'
+
+interface CounterState {
+  counter: number
+  label: string
+}
+
+const store = createStore<CounterState>({
+  counter: 0,
+  label: 'default'
+})
+
+// state is typed as CounterState
+const state = store.getState()
+state.counter // number
+state.label   // string
+```
+
+The `Store<T>` interface exported by Killa exposes both `getState` and `getServerState` as `() => T`, so TypeScript will enforce the correct shape everywhere you use the store.
+
+## API reference
+
+<AccordionGroup>
+  <Accordion title="getState()">
+    Returns a deep clone of the current store state. The returned object can be safely mutated without affecting the store.
+
+    **Returns:** `T` — a clone of the current state.
+  </Accordion>
+  <Accordion title="getServerState()">
+    Returns the initial state passed to `createStore`. This value never changes after the store is created.
+
+    **Returns:** `T` — the original initial state.
+  </Accordion>
+</AccordionGroup>

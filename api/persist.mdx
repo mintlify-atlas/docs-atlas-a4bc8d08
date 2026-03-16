@@ -1,0 +1,163 @@
+---
+title: persist
+description: Middleware that synchronizes a Killa store with a storage backend such as localStorage.
+---
+
+The `persist` middleware saves store state to a storage backend and restores it when the store is next initialized. It supports custom storage adapters, merge strategies, revalidation, and optional key/value encoding.
+
+## Import
+
+```ts
+import { persist } from 'killa/persist'
+```
+
+## Signature
+
+```ts
+function persist<T>(config: PersistConfig<T>): (store: Store<T>) => void
+```
+
+`persist` is a **middleware factory** — it returns a function that you pass to the `use` option of `createStore`.
+
+## Usage
+
+```ts
+import { createStore } from 'killa'
+import { persist } from 'killa/persist'
+
+const userStore = createStore(
+  { name: '', loggedIn: false },
+  {
+    use: [
+      persist({ name: 'user-store' }),
+    ],
+  }
+)
+```
+
+After applying the middleware, the store gains a `persist` property with the [`StoreWithPersist`](/api/types#storewithpersist) interface:
+
+```ts
+userStore.persist.hydrated()   // true once storage has been read
+userStore.persist.rehydrate()  // manually re-read from storage
+userStore.persist.destroy()    // remove the persisted entry
+```
+
+## Configuration
+
+<ParamField path="name" type="string">
+  The key used to read and write from storage. Must be unique across all stores in your application. Without a name, state cannot be persisted reliably across sessions.
+</ParamField>
+
+<ParamField path="storage" type="CustomStorage<T> | (() => CustomStorage<T>)">
+  The storage backend to use. Defaults to `localStorage`.
+
+  Pass a factory function (strongly recommended for SSR or environments where `window` may not be available at module evaluation time). The factory is called lazily on first access.
+
+  ```ts
+  persist({
+    name: 'my-store',
+    storage: () => sessionStorage,
+  })
+  ```
+
+  You can also supply any object that satisfies [`CustomStorage<T>`](/api/types#customstorage). See [`normalizeStorage`](/api/normalize-storage) for a helper that wraps Web Storage APIs.
+</ParamField>
+
+<ParamField path="merge" type="(state: T, persistedState: T) => T">
+  Custom merge strategy called with `(currentState, persistedState)`. The return value becomes the new store state.
+
+  The default behavior shallow-merges the persisted state over the current state — persisted values win for top-level keys that exist in both.
+
+  ```ts
+  persist({
+    name: 'preferences',
+    merge: (state, persisted) => ({ ...state, ...persisted }),
+  })
+  ```
+</ParamField>
+
+<ParamField path="revalidate" type="boolean" default="true">
+  When `true`, the store re-reads from storage after `revalidateTimeout` milliseconds. This allows multiple tabs or windows sharing the same storage key to stay in sync.
+</ParamField>
+
+<ParamField path="revalidateTimeout" type="number" default="200">
+  Milliseconds after initialization before the store revalidates from storage. Only used when `revalidate` is `true`.
+</ParamField>
+
+<ParamField path="encrypted" type="boolean" default="false">
+  When `true`, storage keys and values are encoded with `btoa`/`atob` before writing and decoded when reading.
+
+  <Warning>
+    This is lightweight obfuscation, not encryption. Do not use it to protect sensitive or secret data.
+  </Warning>
+</ParamField>
+
+## Examples
+
+### Persist to sessionStorage
+
+```ts
+import { createStore } from 'killa'
+import { persist } from 'killa/persist'
+
+const sessionStore = createStore(
+  { cart: [] as string[] },
+  {
+    use: [
+      persist({
+        name: 'cart',
+        storage: () => sessionStorage,
+      }),
+    ],
+  }
+)
+```
+
+### Custom merge — deep merge with a library
+
+```ts
+import { createStore } from 'killa'
+import { persist } from 'killa/persist'
+import { merge } from 'lodash-es'
+
+const settingsStore = createStore(
+  { theme: 'light', notifications: { email: true, push: false } },
+  {
+    use: [
+      persist({
+        name: 'settings',
+        merge: (state, persisted) => merge({}, state, persisted),
+      }),
+    ],
+  }
+)
+```
+
+### Disable revalidation
+
+```ts
+persist({
+  name: 'flags',
+  revalidate: false, // do not poll storage after init
+})
+```
+
+### Checking hydration status
+
+Useful when you need to wait for persisted data before rendering:
+
+```tsx
+import { useStore } from 'killa/react'
+import { userStore } from './stores/user'
+
+function App() {
+  const [name] = useStore(userStore, (s) => s.name)
+
+  if (!userStore.persist.hydrated()) {
+    return <p>Loading...</p>
+  }
+
+  return <p>Welcome, {name}</p>
+}
+```

@@ -1,0 +1,181 @@
+---
+title: Store methods
+description: Complete reference for all methods available on a Killa Store<T> object.
+---
+
+Every store created with [`createStore`](/api/create-store) exposes the following methods. In production the store object is frozen, so these properties cannot be overwritten directly — use middleware if you need to extend the store.
+
+## getState
+
+```ts
+store.getState(): T
+```
+
+Returns a **deep clone** of the current state. Mutating the returned object has no effect on the store.
+
+<ParamField path="return" type="T">
+  A deep clone of the current state. Safe to mutate without side effects.
+</ParamField>
+
+```ts
+const state = store.getState()
+state.count = 999 // does not affect the store
+
+store.getState().count // still the original value
+```
+
+<Tip>
+  Because `getState` clones on every call, avoid calling it in tight loops. Capture the result once per operation.
+</Tip>
+
+---
+
+## setState
+
+```ts
+store.setState(fn: (state: T) => Partial<T>, force?: boolean): void
+```
+
+Updates the store state. The updater function receives the current state (as a deep clone) and returns an object with the fields to change.
+
+Subscribers are notified only when the new state differs from the previous state according to the store's equality comparator (deep equality by default).
+
+<ParamField path="fn" type="(state: T) => Partial<T>" required>
+  Updater function. Receives the current state and returns a partial state object to merge. Return an empty object `{}` to make no changes.
+</ParamField>
+
+<ParamField path="force" type="boolean" default="false">
+  When `true`, the returned partial replaces the entire state instead of being merged into the existing state. This is useful for resetting the store to a completely new shape.
+</ParamField>
+
+```ts
+// Merge update — only touched fields change
+store.setState((state) => ({ count: state.count + 1 }))
+
+// Force replace — the entire state becomes the returned object
+store.setState(() => ({ count: 0, label: 'reset' }), true)
+```
+
+<Warning>
+  When `force` is `true` any fields not included in the returned object are removed from the state.
+</Warning>
+
+---
+
+## subscribe
+
+```ts
+store.subscribe<U>(
+  subscriber: (state: T, prevState: T) => void,
+  selector?: (state: T) => U
+): () => boolean
+```
+
+Registers a listener that is called whenever the state changes. Returns an **unsubscribe** function.
+
+<ParamField path="subscriber" type="(state: T, prevState: T) => void" required>
+  Called after each state update. Receives the new state and the previous state.
+</ParamField>
+
+<ParamField path="selector" type="(state: T) => U">
+  Optional selector function. When provided, the subscriber is only invoked when the selected slice of state changes (compared with deep equality). This avoids unnecessary re-runs when unrelated parts of the state update.
+</ParamField>
+
+<ParamField path="return" type="() => boolean">
+  An unsubscribe function. Call it to remove the subscriber. Returns `true` if the subscriber was present and is now removed, `false` if it was not found.
+</ParamField>
+
+```ts
+// Subscribe to all state changes
+const unsubscribe = store.subscribe((state, prevState) => {
+  console.log('count changed from', prevState.count, 'to', state.count)
+})
+
+// Unsubscribe when done
+unsubscribe()
+
+// Subscribe only to a slice of state
+const unsubscribeSlice = store.subscribe(
+  (state) => { console.log('name is now', state.name) },
+  (state) => state.name
+)
+```
+
+---
+
+## getServerState
+
+```ts
+store.getServerState(): T
+```
+
+Returns the **initial state** that was passed to `createStore`. The returned value is the original reference (not cloned), so treat it as read-only.
+
+<ParamField path="return" type="T">
+  The initial state object as provided at store creation time.
+</ParamField>
+
+<Info>
+  `getServerState` is used internally by `useStore` for SSR hydration. Calling it from application code is rarely needed.
+</Info>
+
+```ts
+const store = createStore({ count: 0 })
+
+store.setState((s) => ({ count: 42 }))
+
+store.getState().count        // 42
+store.getServerState().count  // 0 (initial value)
+```
+
+---
+
+## resetState
+
+```ts
+store.resetState(state?: unknown): void
+```
+
+Resets the store. When called without arguments it reverts to the initial state. When called with a valid object it overwrites the entire state with the provided value.
+
+Internally calls `setState(() => newState, true)`, so it always replaces (not merges) and always notifies subscribers if the state differs.
+
+<ParamField path="state" type="unknown">
+  Optional replacement state. Must be a plain object. If omitted or if the provided value is not an object, the store reverts to its initial state.
+</ParamField>
+
+```ts
+const store = createStore({ count: 10, name: 'Alice' })
+
+store.setState(() => ({ count: 99 }))
+store.getState().count // 99
+
+// Reset to initial state
+store.resetState()
+store.getState().count // 10
+
+// Overwrite with a specific object
+store.resetState({ count: 5, name: 'Bob' })
+store.getState() // { count: 5, name: 'Bob' }
+```
+
+---
+
+## destroy
+
+```ts
+store.destroy(): void
+```
+
+Removes all subscribers from the store. After calling `destroy`, subsequent `setState` calls still update the state but nothing will be notified.
+
+<Warning>
+  `destroy` does not reset the state — it only clears the subscriber set. Call `resetState()` first if you also need the state reverted.
+</Warning>
+
+```ts
+store.destroy()
+
+// No subscribers remain; this update is silent
+store.setState((s) => ({ count: s.count + 1 }))
+```

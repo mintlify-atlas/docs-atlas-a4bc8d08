@@ -1,0 +1,173 @@
+---
+title: Subscriptions
+description: Listen to state changes in a Killa store using global or selector-scoped subscribers.
+---
+
+Subscribers let you react to state changes. Killa supports both global subscribers (called on any change) and selective subscribers (called only when a specific slice of state changes).
+
+## Global subscriber
+
+`store.subscribe(listener)` registers a listener that fires whenever any part of the state changes:
+
+```js
+import { createStore } from 'killa'
+
+const store = createStore({ counter: 0 })
+
+store.subscribe((state, prevState) => {
+  console.log(state)     // { counter: 1 }
+  console.log(prevState) // { counter: 0 }
+})
+
+store.setState(() => ({ counter: 1 }))
+```
+
+The listener receives two arguments:
+- `state` — the new state after the update
+- `prevState` — the state before the update
+
+## Selector-scoped subscriber
+
+Pass a selector as the second argument to subscribe only to a specific slice of state. The listener fires only when the selected value changes:
+
+### Single field selector
+
+```js
+const store = createStore({ counter: 0, type: '', filter: '' })
+
+store.subscribe(
+  (state, prevState) => {
+    console.log(state) // full state, but only called when counter changes
+  },
+  (state) => state.counter
+)
+```
+
+In this example, changing `type` or `filter` will **not** trigger this subscriber.
+
+### Multi-field selector
+
+Return an object from the selector to watch multiple fields at once:
+
+```js
+const store = createStore({ counter: 0, type: '', filter: '' })
+
+store.subscribe(
+  (state) => {
+    console.log(state)
+  },
+  (state) => ({ counter: state.counter, filter: state.filter })
+)
+```
+
+This subscriber fires when either `counter` or `filter` changes, but ignores changes to `type`.
+
+### Firing behavior comparison
+
+<Tabs>
+  <Tab title="Global">
+    ```js
+    const store = createStore({ counter: 0, filter: '' })
+
+    // Fires on every state change
+    store.subscribe((state) => {
+      console.log('global fired', state)
+    })
+
+    store.setState(() => ({ filter: 'active' })) // fires
+    store.setState(() => ({ counter: 1 }))       // fires
+    ```
+  </Tab>
+  <Tab title="Selector">
+    ```js
+    const store = createStore({ counter: 0, filter: '' })
+
+    // Only fires when `counter` changes
+    store.subscribe(
+      (state) => console.log('selector fired', state.counter),
+      (state) => state.counter
+    )
+
+    store.setState(() => ({ filter: 'active' })) // does NOT fire
+    store.setState(() => ({ counter: 1 }))       // fires
+    ```
+  </Tab>
+</Tabs>
+
+## Unsubscribing
+
+`subscribe` returns an unsubscribe function. Call it to remove the subscriber:
+
+```js
+const store = createStore({ counter: 0 })
+
+const unsubscribe = store.subscribe((state) => {
+  console.log(state)
+})
+
+store.setState(() => ({ counter: 1 })) // listener fires
+
+unsubscribe()
+
+store.setState(() => ({ counter: 2 })) // listener does NOT fire
+```
+
+The unsubscribe function returns `true` if the subscriber was successfully removed, or `false` if it was not found.
+
+## destroy
+
+`store.destroy()` removes **all** subscribers at once:
+
+```js
+const store = createStore({ counter: 0 })
+
+store.subscribe(() => console.log('subscriber A'))
+store.subscribe(() => console.log('subscriber B'))
+
+store.destroy()
+
+store.setState(() => ({ counter: 1 }))
+// Neither subscriber fires
+```
+
+<Warning>
+  `destroy` is a one-way operation. After calling it, previously registered subscribers are gone. Any new subscribers added after `destroy` will still work normally.
+</Warning>
+
+## TypeScript
+
+You can type the subscriber's selected value with a generic:
+
+```ts
+import { createStore, Subscriber } from 'killa'
+
+interface AppState {
+  counter: number
+  filter: string
+}
+
+const store = createStore<AppState>({ counter: 0, filter: '' })
+
+const listener: Subscriber<AppState, number> = (state, prevState) => {
+  console.log(state.counter) // typed as AppState
+}
+
+store.subscribe(listener, (state) => state.counter)
+```
+
+## API reference
+
+<AccordionGroup>
+  <Accordion title="subscribe(listener, selector?)">
+    Registers a subscriber function. Returns an unsubscribe function.
+
+    **Parameters:**
+    - `listener: (state: T, prevState: T) => void` — called when the watched state changes.
+    - `selector?: (state: T) => U` (optional) — narrows which state changes trigger the listener.
+
+    **Returns:** `() => boolean` — call to remove the subscriber.
+  </Accordion>
+  <Accordion title="destroy()">
+    Clears all registered subscribers. Equivalent to calling every unsubscribe function returned by `subscribe`.
+  </Accordion>
+</AccordionGroup>

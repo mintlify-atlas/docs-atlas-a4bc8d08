@@ -1,0 +1,131 @@
+---
+title: normalizeStorage
+description: Wrap any Web Storage-compatible API into a Killa CustomStorage adapter with automatic serialization and optional encoding.
+---
+
+`normalizeStorage` adapts any object that follows the Web Storage API shape (`getItem`, `setItem`, `removeItem`) into a Killa-compatible [`CustomStorage<T>`](/api/types#customstorage) instance. It handles JSON serialization/deserialization automatically and degrades gracefully when the underlying storage is unavailable.
+
+## Import
+
+```ts
+import { normalizeStorage } from 'killa/persist'
+```
+
+## Signature
+
+```ts
+function normalizeStorage<T>(
+  initializerStorage: () => CustomStorage<T>,
+  options?: { encrypted?: boolean }
+): CustomStorage<T> | null
+```
+
+## Parameters
+
+<ParamField path="initializerStorage" type="() => CustomStorage<T>" required>
+  A **factory function** that returns a storage object when called. The factory is invoked lazily — at the time `normalizeStorage` first needs to access storage — rather than at import time.
+
+  This lazy pattern is important for SSR: `localStorage`, `sessionStorage`, and other browser globals may throw or be `undefined` during server-side rendering. Wrapping them in a factory ensures they are only accessed in environments where they exist.
+
+  The returned object must satisfy the `CustomStorage<T>` interface:
+  - `getItem(name: string): T | null`
+  - `setItem(name: string, value: unknown): void`
+  - `removeItem(name: string): void`
+</ParamField>
+
+<ParamField path="options.encrypted" type="boolean" default="false">
+  When `true`, both storage keys and values are encoded with `btoa` before writing and decoded with `atob` when reading. This provides light obfuscation of the stored data.
+
+  <Warning>
+    `btoa`/`atob` encoding is **not encryption**. Encoded values can be trivially decoded by anyone with access to storage. Do not use this option to protect confidential or secret data.
+  </Warning>
+</ParamField>
+
+## Return value
+
+<ResponseField name="return" type="CustomStorage<T> | null">
+  A wrapped storage object, or `null` if the `initializerStorage` factory throws during initialization (for example, when `localStorage` is blocked by a browser privacy setting or is unavailable in a non-browser environment).
+
+  Always check for `null` before using the result, or pass it directly to `persist` — the middleware handles `null` gracefully by falling back to in-memory state.
+</ResponseField>
+
+## Examples
+
+### Wrapping sessionStorage
+
+```ts
+import { normalizeStorage } from 'killa/persist'
+
+const sessionStorage = normalizeStorage(() => window.sessionStorage)
+
+// Use with persist middleware
+import { createStore } from 'killa'
+import { persist } from 'killa/persist'
+
+const tabStore = createStore(
+  { step: 0 },
+  {
+    use: [
+      persist({
+        name: 'tab-state',
+        storage: () => normalizeStorage(() => window.sessionStorage),
+      }),
+    ],
+  }
+)
+```
+
+### With encoding enabled
+
+```ts
+import { normalizeStorage } from 'killa/persist'
+
+const encodedStorage = normalizeStorage(
+  () => window.localStorage,
+  { encrypted: true }
+)
+```
+
+### React Native / AsyncStorage
+
+`AsyncStorage` from `@react-native-async-storage/async-storage` follows a compatible interface. Wrap it the same way:
+
+```ts
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { normalizeStorage } from 'killa/persist'
+import { createStore } from 'killa'
+import { persist } from 'killa/persist'
+
+const mobileStore = createStore(
+  { onboarded: false },
+  {
+    use: [
+      persist({
+        name: 'app-state',
+        storage: () => normalizeStorage(() => AsyncStorage),
+      }),
+    ],
+  }
+)
+```
+
+### Graceful null handling
+
+If the factory throws (e.g., in a server environment), `normalizeStorage` returns `null`:
+
+```ts
+import { normalizeStorage } from 'killa/persist'
+
+const storage = normalizeStorage(() => {
+  if (typeof window === 'undefined') throw new Error('No window')
+  return window.localStorage
+})
+
+if (storage === null) {
+  console.warn('Storage unavailable — state will not be persisted.')
+}
+```
+
+<Tip>
+  In SSR frameworks (Next.js, Remix, SvelteKit), always guard storage access inside a factory function rather than accessing `localStorage` or `sessionStorage` at module level.
+</Tip>

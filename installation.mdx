@@ -1,0 +1,109 @@
+---
+title: Installation
+description: Install Killa via a package manager or load it directly from a CDN.
+---
+
+## Package manager
+
+<CodeGroup>
+
+```bash npm
+npm install killa
+```
+
+```bash yarn
+yarn add killa
+```
+
+```bash pnpm
+pnpm add killa
+```
+
+</CodeGroup>
+
+<Note>
+  TypeScript type definitions are bundled with every package export. No separate `@types/killa` package is needed.
+</Note>
+
+## CDN
+
+You can load the UMD build directly in a browser without a bundler. The library is exposed as `window.killa`.
+
+<CodeGroup>
+
+```html unpkg
+<script src="https://unpkg.com/killa@1.10.0/dist/umd/killa.min.js"></script>
+```
+
+```html jsDelivr
+<script src="https://cdn.jsdelivr.net/npm/killa@1.10.0/dist/umd/killa.min.js"></script>
+```
+
+</CodeGroup>
+
+### Middlewares CDN
+
+The middlewares (including `persist`) are shipped in a separate UMD bundle exposed as `window.killaMiddlewares`.
+
+<CodeGroup>
+
+```html unpkg
+<script src="https://unpkg.com/killa@1.10.0/dist/umd/killaMiddlewares.min.js"></script>
+```
+
+```html jsDelivr
+<script src="https://cdn.jsdelivr.net/npm/killa@1.10.0/dist/umd/killaMiddlewares.min.js"></script>
+```
+
+</CodeGroup>
+
+Once both scripts are loaded you can access the APIs via the global objects:
+
+```html browser
+<script src="https://unpkg.com/killa@1.10.0/dist/umd/killa.min.js"></script>
+<script src="https://unpkg.com/killa@1.10.0/dist/umd/killaMiddlewares.min.js"></script>
+<script>
+  const { createStore } = window.killa
+  const { persist } = window.killaMiddlewares
+
+  const store = createStore(
+    { counter: 0 },
+    { use: [persist({ name: 'my-store' })] }
+  )
+</script>
+```
+
+## Package exports
+
+Killa uses Node.js [package exports](https://nodejs.org/api/packages.html#exports) so you can import only what you need.
+
+| Export | Description |
+|---|---|
+| `killa` | Main entry point. Re-exports `createStore` and all TypeScript types. |
+| `killa/core` | Core `createStore` implementation and TypeScript types (`Store`, `Options`, `Selector`, `Subscriber`). |
+| `killa/react` | React integration. Exports the `useStore` hook backed by `useSyncExternalStore`. |
+| `killa/persist` | Persist middleware. Exports `persist` and `normalizeStorage`. |
+| `killa/deep-equals` | Internal deep equality utility. Exported for advanced use cases. |
+| `killa/constants` | Internal symbol constants (`SYMBOL_STORE`, `SYMBOL_SUBSCRIBER`). |
+| `killa/helpers` | Internal helper utilities. |
+
+<Tip>
+  Most applications only need `killa` and, if using React, `killa/react`. Import `killa/persist` when you want state to survive page reloads.
+</Tip>
+
+## Peer dependencies
+
+Killa declares the following peer dependencies. Install them alongside Killa if your project does not already include them.
+
+| Package | Required version |
+|---|---|
+| `react` | >= 18.0.0 |
+| `use-sync-external-store` | >= 1.2.0 |
+
+<Note>
+  `use-sync-external-store` is required for the `killa/react` hook to work correctly with React 18 concurrent features. React 18 ships with a compatible built-in, but the standalone package is listed as a peer dependency for environments that use `react-dom/server` or older bundler configurations.
+</Note>
+
+```bash npm
+npm install react react-dom use-sync-external-store
+```
